@@ -27,6 +27,7 @@ public class ChannelConverter implements IBaseConverter<ChannelDTO, ChannelDomai
                         () -> new RuntimeException("User not found with ID: " + dto.getUserId())));
         // Maneja cuando no se encuentra el usuario domain.setChannelName(dto.getChannelName());
 
+        domain.setCreationDate(dto.getCreationDate());
         domain.setChannelName(dto.getChannelName());
         domain.setChannelDescription(dto.getChannelDescription());
         domain.setChannelUrl(dto.getChannelUrl());
