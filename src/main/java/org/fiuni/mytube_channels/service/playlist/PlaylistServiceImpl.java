@@ -7,6 +7,9 @@ import org.fiuni.mytube_channels.dao.IPlaylistDAO;
 import com.fiuni.mytube.domain.playlist.PlaylistDomain;
 import com.fiuni.mytube.dto.playlist.PlaylistDTO;
 import com.fiuni.mytube.dto.playlist.PlaylistResult;
+import org.fiuni.mytube_channels.exception.ConflictException;
+import org.fiuni.mytube_channels.exception.DatabaseOperationException;
+import org.fiuni.mytube_channels.exception.InvalidInputException;
 import org.fiuni.mytube_channels.exception.ResourceNotFoundException;
 import org.fiuni.mytube_channels.service.base.BaseServiceImpl;
 import org.slf4j.Logger;
@@ -87,19 +90,40 @@ public class PlaylistServiceImpl extends BaseServiceImpl<PlaylistDTO, PlaylistDo
     @Transactional
     public PlaylistDTO save(PlaylistDTO dto) {
         logger.info("Guardando nuevo PlaylistDomain desde PlaylistDTO: {}", dto);
-        PlaylistDomain domain = convertDtoToDomain(dto);
-        PlaylistDomain savedDomain = playlistDao.save(domain);
-        logger.info("PlaylistDomain guardado exitosamente: {}", savedDomain);
-        return convertDomainToDto(savedDomain);
+
+        // Validación de entrada
+        if (dto.getPlaylistName() == null || dto.getPlaylistName().isEmpty()) {
+            throw new InvalidInputException("El nombre de la playlist no puede estar vacío");
+        }
+
+        // Comprobar si ya existe una playlist con el mismo nombre
+        if (playlistDao.existsByPlaylistName(dto.getPlaylistName())) {
+            throw new ConflictException("Ya existe una playlist con el nombre " + dto.getPlaylistName());
+        }
+
+        try {
+            PlaylistDomain domain = convertDtoToDomain(dto);
+            PlaylistDomain savedDomain = playlistDao.save(domain);
+            logger.info("PlaylistDomain guardado exitosamente: {}", savedDomain);
+            return convertDomainToDto(savedDomain);
+        } catch (Exception e) {
+            throw new DatabaseOperationException("Error al guardar la playlist en la base de datos");
+        }
     }
 
     @Override
     @Transactional
     public PlaylistDTO update(Integer id, PlaylistDTO dto) {
         logger.info("Actualizando PlaylistDomain con ID: {}", id);
-        PlaylistDomain domain = playlistDao.findById(id).orElse(null);
-        if (domain != null) {
-            logger.info("PlaylistDomain encontrado para actualización: {}", domain);
+
+        PlaylistDomain domain = playlistDao.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist con id " + id + " no encontrado"));
+
+        if (dto.getPlaylistName() == null || dto.getPlaylistName().isEmpty()) {
+            throw new InvalidInputException("El nombre de la playlist no puede estar vacío");
+        }
+
+        try {
             domain.setPlaylistName(dto.getPlaylistName());
             domain.setCreationDate(dto.getCreationDate());
             domain.setVisibility(PlaylistVisibility.valueOf(dto.getVisibility()));
@@ -107,9 +131,8 @@ public class PlaylistServiceImpl extends BaseServiceImpl<PlaylistDTO, PlaylistDo
             PlaylistDomain updatedDomain = playlistDao.save(domain);
             logger.info("PlaylistDomain actualizado exitosamente: {}", updatedDomain);
             return convertDomainToDto(updatedDomain);
-        } else {
-            logger.warn("Error al actualizar PlaylistDomain, no encontrado para ID: {}", id);
-            return null;
+        } catch (Exception e) {
+            throw new DatabaseOperationException("Error al actualizar la playlist en la base de datos");
         }
     }
 

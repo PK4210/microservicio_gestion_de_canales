@@ -20,4 +20,5 @@ public interface IChannelDAO extends JpaRepository<ChannelDomain, Integer> {
 
     List<ChannelDomain> findAllByOrderBySubscribersCountDesc();
 
+    boolean existsByChannelName(String channelName);
 }

@@ -10,5 +10,7 @@ import org.springframework.stereotype.Repository;
 public interface IPlaylistDAO extends JpaRepository<PlaylistDomain, Integer> {
     // Obtener todos los canales que no están eliminados
     Page<PlaylistDomain> findAllByDeletedFalse(Pageable pageable);
+
+    boolean existsByPlaylistName(String playlistName);
 }
 

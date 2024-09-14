@@ -10,6 +10,8 @@ import org.fiuni.mytube_channels.converter.PlaylistVideoConverter;
 import org.fiuni.mytube_channels.dao.IPlaylistDAO;
 import org.fiuni.mytube_channels.dao.IPlaylistVideoDAO;
 import org.fiuni.mytube_channels.dao.IVideoDAO;
+import org.fiuni.mytube_channels.exception.DatabaseOperationException;
+import org.fiuni.mytube_channels.exception.InvalidInputException;
 import org.fiuni.mytube_channels.exception.ResourceNotFoundException;
 import org.fiuni.mytube_channels.service.base.BaseServiceImpl;
 import org.slf4j.Logger;
@@ -88,11 +90,27 @@ public class PlaylistVideoServiceImpl extends BaseServiceImpl<PlaylistVideoDTO, 
     @Override
     @Transactional
     public PlaylistVideoDTO save(PlaylistVideoDTO dto) {
-        logger.info("Guardando nuevo PlaylistVideoDTO: {}", dto);
-        PlaylistVideoDomain domain = convertDtoToDomain(dto);
-        PlaylistVideoDomain savedDomain = playlistVideoDao.save(domain);
-        logger.info("PlaylistVideoDomain guardado exitosamente: {}", savedDomain);
-        return convertDomainToDto(savedDomain);
+        logger.info("Guardando nuevo PlaylistVideoDomain desde PlaylistVideoDTO: {}", dto);
+
+        if (dto.getPlaylistId() == null || dto.getVideoId() == null) {
+            throw new InvalidInputException("El ID de la playlist y el video no pueden estar vacíos");
+        }
+
+        try {
+            PlaylistDomain playlist = playlistDAO.findById(dto.getPlaylistId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Playlist con id " + dto.getPlaylistId() + " no encontrado"));
+            VideoDomain video = videoDAO.findById(dto.getVideoId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Video con id " + dto.getVideoId() + " no encontrado"));
+
+            PlaylistVideoDomain domain = convertDtoToDomain(dto);
+            domain.setPlaylist(playlist);
+            domain.setVideo(video);
+            PlaylistVideoDomain savedDomain = playlistVideoDao.save(domain);
+            logger.info("PlaylistVideoDomain guardado exitosamente: {}", savedDomain);
+            return convertDomainToDto(savedDomain);
+        } catch (Exception e) {
+            throw new DatabaseOperationException("Error al guardar el PlaylistVideo en la base de datos");
+        }
     }
 
     @Override
@@ -129,9 +147,14 @@ public class PlaylistVideoServiceImpl extends BaseServiceImpl<PlaylistVideoDTO, 
     @Transactional
     public void delete(Integer id) {
         logger.info("Eliminando PlaylistVideoDomain con ID: {}", id);
-        playlistVideoDao.findById(id).ifPresent(domain -> {
+        PlaylistVideoDomain domain = playlistVideoDao.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("PlaylistVideo con id " + id + " no encontrado"));
+
+        try {
             playlistVideoDao.delete(domain);
             logger.info("PlaylistVideoDomain eliminado exitosamente");
-        });
+        } catch (Exception e) {
+            throw new DatabaseOperationException("Error al eliminar el PlaylistVideo de la base de datos");
+        }
     }
 }

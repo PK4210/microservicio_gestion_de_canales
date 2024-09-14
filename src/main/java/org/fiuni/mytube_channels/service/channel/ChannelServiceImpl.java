@@ -5,7 +5,7 @@ import com.fiuni.mytube.dto.channel.ChannelResult;
 import com.fiuni.mytube.domain.channel.ChannelDomain;
 import org.fiuni.mytube_channels.converter.ChannelConverter;
 import org.fiuni.mytube_channels.dao.IChannelDAO;
-import org.fiuni.mytube_channels.exception.ResourceNotFoundException;
+import org.fiuni.mytube_channels.exception.*;
 import org.fiuni.mytube_channels.service.base.BaseServiceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,24 +106,37 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
     @Transactional
     public void softDelete(Integer id) {
         logger.info("Eliminación lógica de ChannelDomain con ID: {}", id);
-        ChannelDomain domain = channelDao.findById(id).orElse(null);
-        if (domain != null) {
-            domain.setDeleted(Boolean.TRUE);
-            channelDao.save(domain);
-            logger.info("ChannelDomain eliminado lógicamente con ID: {}", id);
-        } else {
-            logger.warn("ChannelDomain no encontrado para eliminación lógica con ID: {}", id);
-        }
+        ChannelDomain domain = channelDao.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Canal con id " + id + " no encontrado"));
+
+        domain.setDeleted(Boolean.TRUE);
+        channelDao.save(domain);
+        logger.info("ChannelDomain eliminado lógicamente con ID: {}", id);
     }
 
     @Override
     @Transactional
     public ChannelDTO save(ChannelDTO dto) {
         logger.info("Guardando nuevo ChannelDomain desde ChannelDTO: {}", dto);
-        ChannelDomain domain = convertDtoToDomain(dto);
-        ChannelDomain savedDomain = channelDao.save(domain);
-        logger.info("ChannelDomain guardado exitosamente: {}", savedDomain);
-        return convertDomainToDto(savedDomain);
+
+        // Validación de entrada
+        if (dto.getChannelName() == null || dto.getChannelName().isEmpty()) {
+            throw new InvalidInputException("El nombre del canal no puede estar vacío");
+        }
+
+        // Comprobar si ya existe un canal con el mismo nombre
+        if (channelDao.existsByChannelName(dto.getChannelName())) {
+            throw new ConflictException("Ya existe un canal con el nombre " + dto.getChannelName());
+        }
+
+        try {
+            ChannelDomain domain = convertDtoToDomain(dto);
+            ChannelDomain savedDomain = channelDao.save(domain);
+            logger.info("ChannelDomain guardado exitosamente: {}", savedDomain);
+            return convertDomainToDto(savedDomain);
+        } catch (Exception e) {
+            throw new DatabaseOperationException("Error al guardar el canal en la base de datos");
+        }
     }
 
     @Override
