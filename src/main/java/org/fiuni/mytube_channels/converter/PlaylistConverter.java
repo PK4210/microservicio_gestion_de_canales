@@ -47,6 +47,7 @@ public class PlaylistConverter implements IBaseConverter<PlaylistDTO, PlaylistDo
 
 
         domain.setPlaylistName(dto.getPlaylistName());
+        domain.setCreationDate(dto.getCreationDate());
         domain.setVisibility(PlaylistVisibility.valueOf(dto.getVisibility()));  // Convertir String a enum
         domain.setDeleted(false);
 

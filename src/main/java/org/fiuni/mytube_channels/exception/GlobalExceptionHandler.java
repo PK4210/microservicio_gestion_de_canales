@@ -1,5 +1,7 @@
 package org.fiuni.mytube_channels.exception;
 
+import org.hibernate.exception.JDBCConnectionException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -51,6 +53,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUnauthorizedAccessException(UnauthorizedAccessException ex) {
         ErrorResponse errorResponse = new ErrorResponse("Acceso no autorizado", ex.getMessage());
         return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(JDBCConnectionException.class)
+    public ResponseEntity<String> handleJDBCConnectionException(JDBCConnectionException ex) {
+        // Manejo específico para errores de conexión
+        String message = "Error de conexión a la base de datos: " + ex.getMessage();
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(message);
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<String> handleDataAccessException(DataAccessException ex) {
+        // Manejo de otras excepciones de acceso a datos
+        String message = "Error de acceso a datos (posiblemente murio la BD): " + ex.getMessage();
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(message);
     }
 
 }

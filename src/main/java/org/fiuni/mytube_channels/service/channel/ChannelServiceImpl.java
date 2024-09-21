@@ -10,6 +10,9 @@ import org.fiuni.mytube_channels.service.base.BaseServiceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +31,9 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
 
     @Autowired
     private ChannelConverter converter;
+
+    @Autowired
+    private CacheManager cacheManager;
 
 
     @Override
@@ -48,7 +54,7 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value="sd", key="'channel_'+#id")
+    @Cacheable(value = "mytube_channels", key = "'channel_' + #id")
     public ChannelDTO getById(Integer id) {
         ChannelDomain domain = channelDao.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Channel con id " + id + " no encontrado"));
@@ -57,26 +63,40 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
 
     @Override
     @Transactional
+    @CachePut(value = "mytube_channels", key = "'channel_' + #dto._id")
     public ChannelDTO update(Integer id, ChannelDTO dto) {
         logger.info("Actualizando ChannelDomain con ID: {}", id);
+
         ChannelDomain domain = channelDao.findById(id).orElse(null);
-
-        if (domain != null) {
-            logger.info("ChannelDomain encontrado para actualización: {}", domain);
-
-            domain.setChannelName(dto.getChannelName());
-            domain.setChannelDescription(dto.getChannelDescription());
-            domain.setChannelUrl(dto.getChannelUrl());
-            domain.setSubscribersCount(dto.getSubscribersCount());
-
-            ChannelDomain updatedDomain = channelDao.save(domain);
-            logger.info("ChannelDomain actualizado exitosamente: {}", updatedDomain);
-            return convertDomainToDto(updatedDomain);
-        } else {
+        if (domain == null) {
             logger.warn("Error al actualizar ChannelDomain, no encontrado para ID: {}", id);
-            return null;
+            throw new ResourceNotFoundException("Channel con id " + id + " no encontrado");
         }
+
+        logger.info("ChannelDomain encontrado para actualización: {}", domain);
+
+        // Actualizar los campos del dominio con los valores del DTO
+        domain.setChannelName(dto.getChannelName());
+        domain.setChannelDescription(dto.getChannelDescription());
+        domain.setChannelUrl(dto.getChannelUrl());
+        domain.setSubscribersCount(dto.getSubscribersCount());
+
+        // Guardar el dominio actualizado en la base de datos
+        ChannelDomain updatedDomain = channelDao.save(domain);
+        logger.info("ChannelDomain actualizado exitosamente: {}", updatedDomain);
+
+        // Convertir el dominio actualizado a DTO
+        ChannelDTO updatedDto = convertDomainToDto(updatedDomain);
+
+        // Asignar el _id del dominio actualizado al DTO antes de la cache
+        dto.set_id(updatedDomain.getId());
+        logger.info("Actualización exitosa del canal, guardando en caché con clave: channel_{}", dto.get_id());
+
+        return updatedDto;
     }
+
+
+
 
     // Implementación del método para obtener todos los canales sin paginación (si es necesario)
     @Override
@@ -94,6 +114,10 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
                 .map(this::convertDomainToDto)
                 .toList();// Convertir a DTOs
 
+        channelList.forEach(channel -> {
+            cacheManager.getCache("mytube_channels").put("channel_" + channel.get_id(), channel);
+        });
+
         ChannelResult result = new ChannelResult();
         result.setChannels(channelList);
 
@@ -104,6 +128,7 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
 
     @Override
     @Transactional
+    @CacheEvict(value = "mytube_channels", key = "'channel_' + #id")
     public void softDelete(Integer id) {
         logger.info("Eliminación lógica de ChannelDomain con ID: {}", id);
         ChannelDomain domain = channelDao.findById(id)
@@ -112,10 +137,13 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
         domain.setDeleted(Boolean.TRUE);
         channelDao.save(domain);
         logger.info("ChannelDomain eliminado lógicamente con ID: {}", id);
+
+        cacheManager.getCache("mytube_channels").evict("channel_" + id);
     }
 
     @Override
     @Transactional
+    @CachePut(value = "mytube_channels", key = "'channel_' + #dto._id")
     public ChannelDTO save(ChannelDTO dto) {
         logger.info("Guardando nuevo ChannelDomain desde ChannelDTO: {}", dto);
 
@@ -130,14 +158,25 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
         }
 
         try {
+            // Convertir DTO a Domain
             ChannelDomain domain = convertDtoToDomain(dto);
+
+            // Guardar en la base de datos y obtener el _id generado
             ChannelDomain savedDomain = channelDao.save(domain);
             logger.info("ChannelDomain guardado exitosamente: {}", savedDomain);
-            return convertDomainToDto(savedDomain);
+
+            // Asignar el _id generado en la base de datos al DTO
+            dto.set_id(savedDomain.getId()); // Asegúrate de que savedDomain tiene el ID generado
+            logger.info("Guardando canal en caché con ID: {}", dto.get_id());
+
+            // No es necesario guardar manualmente en el caché, @CachePut lo hará automáticamente
+            return dto;
         } catch (Exception e) {
+            logger.error("Error al guardar el canal en la base de datos", e);
             throw new DatabaseOperationException("Error al guardar el canal en la base de datos");
         }
     }
+
 
     @Override
     public List<ChannelDTO> findByChannelName(String channelName) {
