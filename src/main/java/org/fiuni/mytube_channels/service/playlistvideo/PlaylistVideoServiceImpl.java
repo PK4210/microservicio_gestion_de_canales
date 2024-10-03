@@ -69,6 +69,7 @@ public class PlaylistVideoServiceImpl extends BaseServiceImpl<PlaylistVideoDTO, 
     }
 
     @Override
+    @Transactional (readOnly = true)
     public PlaylistVideoResult getAll(Pageable pageable) {
         logger.info("Buscando todos los PlaylistVideoDomains con paginación");
 
@@ -105,13 +106,14 @@ public class PlaylistVideoServiceImpl extends BaseServiceImpl<PlaylistVideoDTO, 
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = {InvalidInputException.class, DatabaseOperationException.class, ResourceNotFoundException.class, Exception.class})
     @CachePut(value = "mytube_playlist_videos", key = "'playlist_video_' + #result._id")
     public PlaylistVideoDTO save(PlaylistVideoDTO dto) {
         logger.info("Guardando nuevo PlaylistVideoDomain desde PlaylistVideoDTO: {}", dto);
 
         // Validación de entrada
         if (dto.getPlaylistId() == null || dto.getVideoId() == null) {
+            logger.warn("El ID de la playlist o del video está vacío, lanzando InvalidInputException");
             throw new InvalidInputException("El ID de la playlist y el video no pueden estar vacíos");
         }
 
@@ -142,9 +144,8 @@ public class PlaylistVideoServiceImpl extends BaseServiceImpl<PlaylistVideoDTO, 
         }
     }
 
-
     @Override
-    @Transactional
+    @Transactional(rollbackFor = {InvalidInputException.class, DatabaseOperationException.class, ResourceNotFoundException.class, Exception.class})
     @CachePut(value = "mytube_playlist_videos", key = "'playlist_video_' + #result._id")
     public PlaylistVideoDTO update(Integer id, PlaylistVideoDTO dto) {
         logger.info("Actualizando PlaylistVideoDomain con ID: {}", id);
@@ -154,31 +155,34 @@ public class PlaylistVideoServiceImpl extends BaseServiceImpl<PlaylistVideoDTO, 
                     logger.info("PlaylistVideoDomain encontrado para actualización: {}", domain);
 
                     // Validar y obtener entidades relacionadas
-                    PlaylistDomain playlist = playlistDAO.findById(dto.getPlaylistId()).orElse(null);
-                    VideoDomain video = videoDAO.findById(dto.getVideoId()).orElse(null);
+                    PlaylistDomain playlist = playlistDAO.findById(dto.getPlaylistId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Playlist con id " + dto.getPlaylistId() + " no encontrada"));
+                    VideoDomain video = videoDAO.findById(dto.getVideoId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Video con id " + dto.getVideoId() + " no encontrado"));
 
-                    if (playlist != null && video != null) {
-                        // Actualizar los campos del dominio
-                        domain.setPlaylist(playlist);
-                        domain.setVideo(video);
-                        PlaylistVideoDomain updatedDomain = playlistVideoDao.save(domain);
-                        logger.info("PlaylistVideoDomain actualizado exitosamente: {}", updatedDomain);
-                        return convertDomainToDto(updatedDomain);
-                    } else {
-                        if (playlist == null) logger.warn("PlaylistDomain no encontrado para ID: {}", dto.getPlaylistId());
-                        if (video == null) logger.warn("VideoDomain no encontrado para ID: {}", dto.getVideoId());
-                        return null;
-                    }
+                    // Actualizar los campos del dominio
+                    domain.setPlaylist(playlist);
+                    domain.setVideo(video);
+                    PlaylistVideoDomain updatedDomain = playlistVideoDao.save(domain);
+                    logger.info("PlaylistVideoDomain actualizado exitosamente: {}", updatedDomain);
+
+                    // Convertir el dominio actualizado a DTO y devolver
+                    PlaylistVideoDTO updatedDto = convertDomainToDto(updatedDomain);
+                    updatedDto.set_id(updatedDomain.getId());
+                    logger.info("PlaylistVideoDTO actualizado con ID: {}", updatedDto.get_id());
+
+                    return updatedDto;
                 })
-                .orElseGet(() -> {
+                .orElseThrow(() -> {
                     logger.warn("Error al actualizar PlaylistVideoDomain, no encontrado para ID: {}", id);
-                    return null;
+                    return new ResourceNotFoundException("PlaylistVideo con id " + id + " no encontrado");
                 });
     }
 
 
+
     @Override
-    @Transactional
+    @Transactional(rollbackFor = {ResourceNotFoundException.class, DatabaseOperationException.class, Exception.class})
     @CacheEvict(value = "mytube_playlist_videos", key = "'playlist_video_' + #id")
     public void delete(Integer id) {
         logger.info("Eliminando PlaylistVideoDomain con ID: {}", id);
@@ -196,5 +200,6 @@ public class PlaylistVideoServiceImpl extends BaseServiceImpl<PlaylistVideoDTO, 
             throw new DatabaseOperationException("Error al eliminar el PlaylistVideo de la base de datos");
         }
     }
+
 
 }

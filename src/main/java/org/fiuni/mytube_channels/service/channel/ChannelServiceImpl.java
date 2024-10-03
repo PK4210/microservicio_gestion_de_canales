@@ -62,7 +62,7 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
     }
 
     @Override
-    @Transactional(rollbackFor = {ResourceNotFoundException.class, Exception.class})  // Rollback ante excepciones
+    @Transactional(rollbackFor = {ResourceNotFoundException.class, InvalidInputException.class ,Exception.class})  // Rollback ante excepciones
     @CachePut(value = "mytube_channels", key = "'channel_' + #dto._id")
     public ChannelDTO update(Integer id, ChannelDTO dto) {
         logger.info("Actualizando ChannelDomain con ID: {}", id);

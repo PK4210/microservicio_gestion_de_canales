@@ -67,6 +67,7 @@ public class PlaylistServiceImpl extends BaseServiceImpl<PlaylistDTO, PlaylistDo
 
     // Implementación del método para obtener todos los canales con paginación
     @Override
+    @Transactional (readOnly = true)
     public PlaylistResult getAll(Pageable pageable) {
         logger.info("Buscando todas las PlaylistDomains con paginación");
 
@@ -125,12 +126,13 @@ public class PlaylistServiceImpl extends BaseServiceImpl<PlaylistDTO, PlaylistDo
 
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = {InvalidInputException.class, DatabaseOperationException.class, Exception.class})
     public PlaylistDTO save(PlaylistDTO dto) {
         logger.info("Guardando nueva PlaylistDomain desde PlaylistDTO: {}", dto);
 
         // Validación de entrada
         if (dto.getPlaylistName() == null || dto.getPlaylistName().isEmpty()) {
+            logger.warn("El nombre de la playlist está vacío, lanzando InvalidInputException");
             throw new InvalidInputException("El nombre de la playlist no puede estar vacío");
         }
 
@@ -160,10 +162,8 @@ public class PlaylistServiceImpl extends BaseServiceImpl<PlaylistDTO, PlaylistDo
         }
     }
 
-
-
     @Override
-    @Transactional
+    @Transactional(rollbackFor = {InvalidInputException.class, DatabaseOperationException.class, ResourceNotFoundException.class, Exception.class})
     public PlaylistDTO update(Integer id, PlaylistDTO dto) {
         logger.info("Actualizando PlaylistDomain con ID: {}", id);
 
@@ -173,6 +173,7 @@ public class PlaylistServiceImpl extends BaseServiceImpl<PlaylistDTO, PlaylistDo
 
         // Validación del nombre de la playlist
         if (dto.getPlaylistName() == null || dto.getPlaylistName().isEmpty()) {
+            logger.warn("El nombre de la playlist está vacío, lanzando InvalidInputException");
             throw new InvalidInputException("El nombre de la playlist no puede estar vacío");
         }
 
@@ -207,18 +208,17 @@ public class PlaylistServiceImpl extends BaseServiceImpl<PlaylistDTO, PlaylistDo
         }
     }
 
-
-
     @Override
-    @Transactional
+    @Transactional(rollbackFor = {ResourceNotFoundException.class, DatabaseOperationException.class, Exception.class})
     public void softDelete(Integer id) {
         logger.info("Eliminando PlaylistDomain con ID: {}", id);
 
         // Buscar el dominio en la base de datos
-        PlaylistDomain domain = playlistDao.findById(id).orElse(null);
+        PlaylistDomain domain = playlistDao.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist con id " + id + " no encontrada"));
 
-        if (domain != null) {
-            // Marcar el dominio como eliminado
+        try {
+            // Marcar el dominio como eliminado (eliminación lógica)
             domain.setDeleted(Boolean.TRUE);
             playlistDao.save(domain);
             logger.info("PlaylistDomain marcado como eliminado con ID: {}", id);
@@ -229,8 +229,9 @@ public class PlaylistServiceImpl extends BaseServiceImpl<PlaylistDTO, PlaylistDo
                 cache.evict("playlist_" + id);
                 logger.info("PlaylistDTO eliminado del caché con clave: playlist_{}", id);
             }
-        } else {
-            logger.info("PlaylistDomain no se encontró con el ID: {}", id);
+        } catch (Exception e) {
+            logger.error("Error al eliminar lógicamente la playlist con ID: {}", id, e);
+            throw new DatabaseOperationException("Error al eliminar lógicamente la playlist con ID: " + id);
         }
     }
 
