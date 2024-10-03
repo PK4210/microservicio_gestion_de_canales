@@ -51,7 +51,7 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
         logger.info("ChannelDTO convertido a ChannelDomain: {}", domain);
         return domain;
     }
-
+    //hola
     @Override
     @Transactional(readOnly = true)
     @Cacheable(value = "mytube_channels", key = "'channel_' + #id")
