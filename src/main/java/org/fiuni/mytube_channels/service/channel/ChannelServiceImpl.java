@@ -17,6 +17,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -35,74 +36,59 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
     @Autowired
     private CacheManager cacheManager;
 
-
     @Override
     protected ChannelDTO convertDomainToDto(ChannelDomain domain) {
-        logger.info("Convirtiendo ChannelDomain a ChannelDTO: {}", domain);
         ChannelDTO dto = converter.domainToDto(domain);
-        logger.info("ChannelDomain convertido a ChannelDTO: {}", dto);
         return dto;
     }
 
     @Override
     protected ChannelDomain convertDtoToDomain(ChannelDTO dto) {
-        logger.info("Convirtiendo ChannelDTO a ChannelDomain: {}", dto);
         ChannelDomain domain = converter.dtoToDomain(dto);
-        logger.info("ChannelDTO convertido a ChannelDomain: {}", domain);
         return domain;
     }
-    //hola
+
     @Override
     @Transactional(readOnly = true)
     @Cacheable(value = "mytube_channels", key = "'channel_' + #id")
     public ChannelDTO getById(Integer id) {
+        logger.info("Obteniendo canal por ID: {}", id);
         ChannelDomain domain = channelDao.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Channel con id " + id + " no encontrado"));
+        logger.info("Canal con ID {} encontrado", id);
         return converter.domainToDto(domain);
     }
 
     @Override
-    @Transactional(rollbackFor = {ResourceNotFoundException.class, InvalidInputException.class ,Exception.class})  // Rollback ante excepciones
+    @Transactional(rollbackFor = {ResourceNotFoundException.class, InvalidInputException.class, Exception.class})
     @CachePut(value = "mytube_channels", key = "'channel_' + #dto._id")
     public ChannelDTO update(Integer id, ChannelDTO dto) {
-        logger.info("Actualizando ChannelDomain con ID: {}", id);
+        logger.info("Iniciando actualización del ChannelDomain con ID: {}", id);
 
-        // Validación de entrada
-        if (dto.getChannelName() == null || dto.getChannelName().isEmpty()) {
-            logger.warn("El nombre del canal está vacío, lanzando InvalidInputException");
-            throw new InvalidInputException("El nombre del canal no puede estar vacío");
-        }
-
-        // Buscar el canal por ID, lanzar excepción si no se encuentra
         ChannelDomain domain = channelDao.findById(id).orElse(null);
         if (domain == null) {
-            logger.warn("Error al actualizar ChannelDomain, no encontrado para ID: {}", id);
+            logger.warn("No se encontró ChannelDomain con ID: {}", id);
             throw new ResourceNotFoundException("Channel con id " + id + " no encontrado");
         }
 
-        logger.info("ChannelDomain encontrado para actualización: {}", domain);
+        validateChannelName(dto.getChannelName());
 
+        logger.info("ChannelDomain encontrado para actualización. Actualizando campos...");
         try {
-            // Actualizar los campos del dominio con los valores del DTO
             domain.setChannelName(dto.getChannelName());
             domain.setChannelDescription(dto.getChannelDescription());
             domain.setChannelUrl(dto.getChannelUrl());
             domain.setSubscribersCount(dto.getSubscribersCount());
 
-            // Guardar el dominio actualizado en la base de datos
             ChannelDomain updatedDomain = channelDao.save(domain);
             logger.info("ChannelDomain actualizado exitosamente: {}", updatedDomain);
 
-            // Convertir el dominio actualizado a DTO
             ChannelDTO updatedDto = convertDomainToDto(updatedDomain);
-
-            // Asignar el _id del dominio actualizado al DTO antes de la cache
             dto.set_id(updatedDomain.getId());
-            logger.info("Actualización exitosa del canal, guardando en caché con clave: channel_{}", dto.get_id());
-
+            logger.info("Actualización exitosa del canal, guardado en caché con clave: channel_{}", dto.get_id());
             return updatedDto;
         } catch (Exception e) {
-            logger.error("Error al actualizar el ChannelDomain con ID: {}", id, e);
+            logger.error("Error durante la actualización del ChannelDomain con ID: {}. Realizando rollback.", id, e);
             throw new DatabaseOperationException("Error al actualizar el canal con ID: " + id);
         }
     }
@@ -119,13 +105,11 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
         logger.info("Buscando todos los ChannelDomains con paginación");
 
         try {
-            // Realizar la búsqueda con paginación
-            Page<ChannelDomain> page = channelDao.findAllByDeletedFalse(pageable);  // Paginación
+            Page<ChannelDomain> page = channelDao.findAllByDeletedFalse(pageable);
             List<ChannelDTO> channelList = page.getContent().stream()
                     .map(this::convertDomainToDto)
-                    .toList();  // Convertir a DTOs
+                    .toList();
 
-            // Guardar en caché los canales obtenidos
             channelList.forEach(channel -> {
                 cacheManager.getCache("mytube_channels").put("channel_" + channel.get_id(), channel);
             });
@@ -134,93 +118,107 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
             result.setChannels(channelList);
 
             logger.info("Todos los ChannelDomains obtenidos exitosamente con paginación");
-
             return result;
         } catch (Exception e) {
-            logger.error("Error al obtener los canales con paginación", e);
-            throw new DatabaseOperationException("Error al obtener los canales con paginación");
+            logger.error("Error al obtener los canales con paginación de la base de datos.", e);
+            throw new DatabaseOperationException("Error al obtener los canales con paginación de la base de datos");
         }
     }
 
 
     @Override
-    @Transactional(rollbackFor = {ResourceNotFoundException.class, Exception.class})  // Rollback ante excepciones específicas y generales
+    @Transactional(rollbackFor = {ResourceNotFoundException.class, Exception.class})
     @CacheEvict(value = "mytube_channels", key = "'channel_' + #id")
     public void softDelete(Integer id) {
-        logger.info("Eliminación lógica de ChannelDomain con ID: {}", id);
+        logger.info("Iniciando eliminación lógica del ChannelDomain con ID: {}", id);
 
-        // Buscar el canal por ID, lanzar excepción si no se encuentra
-        ChannelDomain domain = channelDao.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Canal con id " + id + " no encontrado"));
+        ChannelDomain domain = channelDao.findById(id).orElse(null);
+        if (domain == null) {
+            logger.warn("No se encontró ChannelDomain con ID: {}", id);
+            throw new ResourceNotFoundException("Channel con id " + id + " no encontrado");
+        }
 
         try {
-            // Marcar el canal como eliminado lógicamente
-            domain.setDeleted(Boolean.TRUE);
-            channelDao.save(domain);
-            logger.info("ChannelDomain eliminado lógicamente con ID: {}", id);
-
-            // Eliminar manualmente del caché si es necesario
-            cacheManager.getCache("mytube_channels").evict("channel_" + id);
+            domain.setDeleted(true);  // Eliminación lógica
+            channelDao.save(domain);  // Persistir el cambio en la base de datos
+            logger.info("ChannelDomain eliminado lógicamente con éxito: {}", domain);
         } catch (Exception e) {
-            logger.error("Error al eliminar lógicamente el canal con ID: {}", id, e);
-            throw new DatabaseOperationException("Error al eliminar lógicamente el canal con ID: " + id);
+            logger.error("Error durante la eliminación lógica del ChannelDomain con ID: {}. Realizando rollback.", id, e);
+            throw new DatabaseOperationException("Error al eliminar el canal con ID: " + id);
         }
     }
 
+
     @Override
-    @Transactional(rollbackFor = {DatabaseOperationException.class, Exception.class})  // Rollback ante cualquier excepción
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = {DatabaseOperationException.class, InvalidInputException.class, Exception.class}, timeout =  1)
     @CachePut(value = "mytube_channels", key = "'channel_' + #dto._id")
     public ChannelDTO save(ChannelDTO dto) {
-        logger.info("Guardando nuevo ChannelDomain desde ChannelDTO: {}", dto);
+        logger.info("Iniciando guardado de nuevo ChannelDomain.");
 
-        // Validación de entrada
-        if (dto.getChannelName() == null || dto.getChannelName().isEmpty()) {
-            logger.warn("El nombre del canal está vacío, lanzando InvalidInputException");
-            throw new InvalidInputException("El nombre del canal no puede estar vacío");
-        }
-
-        // Comprobar si ya existe un canal con el mismo nombre
-        if (channelDao.existsByChannelName(dto.getChannelName())) {
-            logger.warn("Ya existe un canal con el mismo nombre");
-            throw new ConflictException("Ya existe un canal con el nombre " + dto.getChannelName());
-        }
+        validateChannelName(dto.getChannelName());
 
         try {
-            // Convertir DTO a Domain
             ChannelDomain domain = convertDtoToDomain(dto);
-
-            // Guardar en la base de datos y obtener el _id generado
             ChannelDomain savedDomain = channelDao.save(domain);
-            logger.info("ChannelDomain guardado exitosamente: {}", savedDomain);
+            logger.info("ChannelDomain guardado exitosamente con ID: {}", savedDomain.getId());
 
-            // Asignar el _id generado en la base de datos al DTO
-            dto.set_id(savedDomain.getId()); // Asegúrate de que savedDomain tiene el ID generado
-            logger.info("Guardando canal en caché con ID: {}", dto.get_id());
-
-            // No es necesario guardar manualmente en el caché, @CachePut lo hará automáticamente
+            dto.set_id(savedDomain.getId());
+            logger.info("Guardado exitoso del canal en caché con ID: {}", dto.get_id());
+            logger.info("Transacción completada exitosamente. No se realizó rollback.");
             return dto;
         } catch (Exception e) {
-            logger.error("Error al guardar el canal en la base de datos", e);
+            logger.error("Error al guardar el canal. Realizando rollback: {}", e.getMessage(), e);
             throw new DatabaseOperationException("Error al guardar el canal en la base de datos");
         }
     }
 
-
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<ChannelDTO> findByChannelName(String channelName) {
+        logger.info("Buscando canales con nombre: {}", channelName);
         List<ChannelDomain> domains = channelDao.findByChannelNameContaining(channelName);
+        logger.info("Canales encontrados: {}", domains.size());
         return convertDomainListToDtoList(domains);
     }
 
     @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
     public List<ChannelDTO> findAllOrderBySubscribersCountDesc() {
+        logger.info("Buscando todos los canales ordenados por número de suscriptores.");
         List<ChannelDomain> domains = channelDao.findAllByOrderBySubscribersCountDesc();
+        logger.info("Canales ordenados por suscriptores encontrados: {}", domains.size());
         return convertDomainListToDtoList(domains);
     }
 
     @Override
+    @Transactional(propagation = Propagation.NEVER)
     public List<ChannelDTO> findActiveChannels() {
-        List<ChannelDomain> domains = channelDao.findByDeletedFalse();
-        return convertDomainListToDtoList(domains);
+        logger.info("Intentando ejecutar findActiveChannels sin transacción (Propagation.NEVER)");
+
+        try {
+            List<ChannelDomain> domains = channelDao.findByDeletedFalse();
+            logger.info("findActiveChannels ejecutado exitosamente sin transacción");
+            return convertDomainListToDtoList(domains);
+        } catch (Exception e) {
+            logger.error("Error al ejecutar findActiveChannels sin transacción", e);
+            throw e;
+        }
     }
+
+
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void validateChannelName(String channelName) {
+        logger.info("Validando nombre del canal: {}", channelName);
+
+        if (channelName == null || channelName.isEmpty()) {
+            logger.warn("El nombre del canal está vacío. Lanzando InvalidInputException.");
+            throw new InvalidInputException("El nombre del canal no puede estar vacío");
+        }
+
+        if (channelDao.existsByChannelName(channelName)) {
+            logger.warn("Ya existe un canal con el nombre {}", channelName);
+            throw new ConflictException("Ya existe un canal con el nombre " + channelName);
+        }
+    }
+
 }

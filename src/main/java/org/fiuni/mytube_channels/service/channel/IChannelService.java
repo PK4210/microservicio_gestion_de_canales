@@ -24,4 +24,5 @@ public interface IChannelService extends IBaseService<ChannelDTO, ChannelResult>
     List<ChannelDTO> findAllOrderBySubscribersCountDesc();
 
     List<ChannelDTO> findActiveChannels();
+
 }
