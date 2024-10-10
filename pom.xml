@@ -12,8 +12,8 @@
     <artifactId>mytube_channels</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>war</packaging>
-    <name>microservicio_gestion_de_canales</name>
-    <description>microservicio_gestion_de_canales</description>
+    <name>mytube_channels</name>
+    <description>mytube_channels</description>
     <url/>
     <licenses>
         <license/>
@@ -70,14 +70,23 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- MyTube Beans: Dependencia interna de tu proyecto con clases reutilizables -->
+        <!--ESTO LE ANDA A MAIDANITA Y A MI NO -->
+
         <dependency>
-            <groupId>com.fiuni.mytube</groupId>
+            <groupId>com.fiuni</groupId>
             <artifactId>mytube-beans</artifactId>
             <version>1.0.0</version>
         </dependency>
 
-
+        <!-- MyTube Beans: Dependencia interna de tu proyecto con clases reutilizables
+        <dependency>
+            <groupId>com.fiuni</groupId>
+            <artifactId>mytube</artifactId>
+            <version>1.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/mytube-beans.jar</systemPath>
+        </dependency>
+-->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
