@@ -72,11 +72,9 @@
 
         <!-- MyTube Beans: Dependencia interna de tu proyecto con clases reutilizables -->
         <dependency>
-            <groupId>com.fiuni</groupId>
-            <artifactId>mytube</artifactId>
-            <version>1.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/mytube-beans.jar</systemPath>
+            <groupId>com.fiuni.mytube</groupId>
+            <artifactId>mytube-beans</artifactId>
+            <version>1.0.0</version>
         </dependency>
 
 
