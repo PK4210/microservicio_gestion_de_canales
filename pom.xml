@@ -85,8 +85,8 @@
             <version>1.0</version>
             <scope>system</scope>
             <systemPath>${project.basedir}/lib/mytube-beans.jar</systemPath>
-        </dependency>-->
-
+        </dependency>
+        -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
