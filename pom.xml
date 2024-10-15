@@ -70,22 +70,23 @@
             <scope>test</scope>
         </dependency>
 
-        <!--ESTO LE ANDA A MAIDANITA Y A MI NO
+        <!--ESTO LE ANDA A MAIDANITA Y A MI NO     -->
 
         <dependency>
             <groupId>com.fiuni</groupId>
             <artifactId>mytube-beans</artifactId>
             <version>1.0.0</version>
         </dependency>
-        -->
-        <!-- MyTube Beans: Dependencia interna de tu proyecto con clases reutilizables-->
+
+        <!-- MyTube Beans: Dependencia interna de tu proyecto con clases reutilizables
+
         <dependency>
             <groupId>com.fiuni</groupId>
             <artifactId>mytube</artifactId>
             <version>1.0</version>
             <scope>system</scope>
             <systemPath>${project.basedir}/lib/mytube-beans.jar</systemPath>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>org.slf4j</groupId>
