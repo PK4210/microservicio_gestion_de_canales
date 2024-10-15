@@ -84,7 +84,7 @@
             <artifactId>mytube</artifactId>
             <version>1.0</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/lib/mytube-beans.jar</systemPath>
+            <systemPath>lib/mytube-beans1.jar</systemPath>
         </dependency>
 
         <dependency>
