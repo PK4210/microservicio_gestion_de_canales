@@ -31,7 +31,7 @@ public class ChannelConverter implements IBaseConverter<ChannelDTO, ChannelDomai
         domain.setChannelName(dto.getChannelName());
         domain.setChannelDescription(dto.getChannelDescription());
         domain.setChannelUrl(dto.getChannelUrl());
-        domain.setSubscribersCount(null);
+        domain.setSubscribersCount(dto.getSubscribersCount() != null ? dto.getSubscribersCount() : 0); // Si es null, asignar 0
         domain.setDeleted(Boolean.FALSE);
 
         logger.info("ChannelDTO convertido a ChannelDomain: {}", domain);
@@ -49,7 +49,7 @@ public class ChannelConverter implements IBaseConverter<ChannelDTO, ChannelDomai
         dto.setChannelDescription(domain.getChannelDescription());
         dto.setCreationDate(domain.getCreationDate());
         dto.setChannelUrl(domain.getChannelUrl());
-        dto.setSubscribersCount(null);
+        dto.setSubscribersCount(domain.getSubscribersCount() != null ? domain.getSubscribersCount() : 0); // Asignar 0 si es null
         dto.setUserId(domain.getUser().getId()); // Asignar el userId desde el UserDomain
 
         logger.info("ChannelDomain convertido a ChannelDTO: {}", dto);
