@@ -76,7 +76,7 @@
             <groupId>com.fiuni</groupId>
             <artifactId>mytube-beans</artifactId>
             <version>1.0.0</version>
-        </dependency>
+        </dependency>-->
 
 
         <!-- MyTube Beans: Dependencia interna de tu proyecto con clases reutilizables
@@ -109,11 +109,6 @@
             <artifactId>jedis</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-        </dependency>
-
     </dependencies>
     <dependencyManagement>
         <dependencies>
@@ -129,6 +124,7 @@
 
 
     <build>
+        <finalName>mytube_channels</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
