@@ -71,14 +71,19 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
             throw new ResourceNotFoundException("Channel con id " + id + " no encontrado");
         }
 
-        validateChannelName(dto.getChannelName());
+        // Verificar si el nombre del canal ha cambiado
+        if (!domain.getChannelName().equals(dto.getChannelName())) {
+            validateChannelName(dto.getChannelName()); // Solo validar si el nombre es diferente
+            domain.setChannelName(dto.getChannelName());
+        }
 
         logger.info("ChannelDomain encontrado para actualización. Actualizando campos...");
         try {
-            domain.setChannelName(dto.getChannelName());
+            // Solo actualizar la descripción del canal
             domain.setChannelDescription(dto.getChannelDescription());
-            domain.setChannelUrl(dto.getChannelUrl());
-            domain.setSubscribersCount(dto.getSubscribersCount());
+            // Mantener los demás campos sin cambios para evitar conflictos
+            domain.setChannelUrl(domain.getChannelUrl());
+            domain.setSubscribersCount(domain.getSubscribersCount());
 
             ChannelDomain updatedDomain = channelDao.save(domain);
             logger.info("ChannelDomain actualizado exitosamente: {}", updatedDomain);
@@ -92,6 +97,7 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
             throw new DatabaseOperationException("Error al actualizar el canal con ID: " + id);
         }
     }
+
 
     // Implementación del método para obtener todos los canales sin paginación (si es necesario)
     @Override
