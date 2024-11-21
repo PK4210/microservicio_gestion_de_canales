@@ -85,7 +85,7 @@
             <groupId>com.fiuni</groupId>
             <artifactId>mytube</artifactId>
             <version>1.0</version>
-            <scope>system</scope>
+            <scope>system</scope>s
             <systemPath>${project.basedir}/lib/mytube-beans.jar</systemPath>
         </dependency>-->
 
