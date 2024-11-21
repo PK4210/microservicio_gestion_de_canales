@@ -245,4 +245,25 @@ public class ChannelServiceImpl extends BaseServiceImpl<ChannelDTO, ChannelDomai
         }
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ChannelDTO> findActiveChannelsByUserId(Integer userId) {
+        logger.info("Buscando canales activos para el usuario con ID: {}", userId);
+        try {
+            List<ChannelDomain> domains = channelDao.findByUserIdAndDeletedFalse(userId);
+
+            if (domains.isEmpty()) {
+                logger.warn("No se encontraron canales activos para el usuario con ID: {}", userId);
+                throw new ResourceNotFoundException("No se encontraron canales activos para el usuario con ID: " + userId);
+            }
+
+            logger.info("Canales activos encontrados para el usuario con ID: {}", userId);
+            return convertDomainListToDtoList(domains);
+        } catch (Exception e) {
+            logger.error("Error al buscar canales activos para el usuario con ID: {}", userId, e);
+            throw e;
+        }
+    }
+
+
 }

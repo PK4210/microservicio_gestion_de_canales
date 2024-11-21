@@ -108,14 +108,20 @@ public class ChannelController {
     }
 
     @GetMapping("/users/{id}")
-    public ResponseEntity<List<ChannelDTO>> getChannelsByUserId(@PathVariable("id") Integer userId) {
-        logger.info("Solicitud para obtener los canales del usuario con ID: {}", userId);
+    public ResponseEntity<List<ChannelDTO>> getChannelsByUserId(
+            @PathVariable("id") Integer userId,
+            @RequestParam(value = "active", defaultValue = "false") boolean activeOnly) {
+        logger.info("Solicitud para obtener canales del usuario con ID: {}, solo activos: {}", userId, activeOnly);
         try {
-            List<ChannelDTO> channels = channelService.findByUserId(userId);
+            List<ChannelDTO> channels = activeOnly
+                    ? channelService.findActiveChannelsByUserId(userId)
+                    : channelService.findByUserId(userId);
+
             if (channels.isEmpty()) {
                 logger.warn("No se encontraron canales para el usuario con ID: {}", userId);
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
+
             logger.info("Canales encontrados para el usuario con ID: {}", userId);
             return new ResponseEntity<>(channels, HttpStatus.OK);
         } catch (ResourceNotFoundException e) {
@@ -126,5 +132,6 @@ public class ChannelController {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
 
 }

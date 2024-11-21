@@ -23,4 +23,6 @@ public interface IChannelDAO extends JpaRepository<ChannelDomain, Integer> {
     boolean existsByChannelName(String channelName);
 
     List<ChannelDomain> findByUserId(Integer userId);
+
+    List<ChannelDomain> findByUserIdAndDeletedFalse(Integer userId);
 }
