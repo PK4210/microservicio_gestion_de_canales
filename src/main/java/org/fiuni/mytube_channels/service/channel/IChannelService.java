@@ -27,4 +27,5 @@ public interface IChannelService extends IBaseService<ChannelDTO, ChannelResult>
 
     List<ChannelDTO> findByUserId(Integer userId);
 
+    List<ChannelDTO> findActiveChannelsByUserId(Integer userId);
 }
